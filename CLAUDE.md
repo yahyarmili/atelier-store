@@ -21,7 +21,7 @@ npm run db:generate    # drizzle-kit: schema → SQL migrations in ./drizzle
 npm run db:migrate     # apply migrations to Neon
 npm run db:seed        # upsert the sample catalog (src/db/seed-data.ts); idempotent
 npm run db:push        # push schema directly (prototyping)
-npm run db:studio      # browse data
+npm run db:studio      # browse data (loopback only); in Docker use: bash scripts/db-studio.sh
 ```
 
 There is no test framework set up yet.
@@ -62,6 +62,7 @@ Route protection, when added, goes in `src/proxy.ts` (Next 16 renamed `middlewar
 - **Images:** card image and gallery are jsonb (`Img`, `Img[]`) because they're always read whole. Move them to a table only if they need to be queried.
 - **Data access:** components never import `@/db`. Reads go through `src/lib/products.ts` (`server-only`), which maps rows to the types in `src/lib/catalog.ts`. `catalog.ts` must stay DB-free because client components import it.
 - **Caching:** DB-backed routes use `export const revalidate = 60` (this app doesn't enable `cacheComponents`). Authoritative stock checks belong in checkout, inside a transaction (see the driver note above). `next build` needs a migrated, seeded database.
+- **Drizzle Studio is an unauthenticated SQL endpoint:** it accepts SQL from any browser origin (`cors()` = `*`, unfixed as of drizzle-kit 0.31.11), so any web page open in the browser can read or modify the database while Studio runs. It's dev-only and never part of the deployed app. Only start it via `npm run db:studio` (pinned to `127.0.0.1`) or `bash scripts/db-studio.sh` (Docker, `-p 127.0.0.1:4983:4983`); never publish `-p 4983:4983` or pass `--host 0.0.0.0` outside a loopback-mapped container, never run it on a server, and don't leave it running. Prefer pointing it at a non-production Neon branch.
 - **Seed:** `src/db/seed.ts` (data in `seed-data.ts`) must stay idempotent: upsert by slug and replace stock rows.
 
 ## Design system
