@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"C:/Users/yahya/Projects/sandbox/atelier-store:/app\" -w /app -e DATABASE_URL=\"postgresql://u:p@localhost/db\" -e BETTER_AUTH_SECRET=\"build-check-secret-0123456789abcdef\" -e BETTER_AUTH_URL=\"http://localhost:3000\" -e NEXT_TELEMETRY_DISABLED=1 node:24-alpine sh -c \"npm run typecheck && npm run lint && npm run build\")",
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(git status)",
+      "Bash(git diff *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Edit(.env)",
+      "Edit(.env.*)"
+    ],
+    "ask": [
+      "Bash(git push *)"
+    ]
+  }
+}

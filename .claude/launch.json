@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": [
+        "run", "--rm", "--name", "atelier-dev",
+        "-p", "3000:3000",
+        "-v", "C:/Users/yahya/Projects/sandbox/atelier-store:/app",
+        "-w", "/app",
+        "node:24-alpine",
+        "npm", "run", "dev"
+      ],
+      "port": 3000
+    }
+  ]
+}
