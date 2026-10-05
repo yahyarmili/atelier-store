@@ -86,6 +86,7 @@ All of it lives in `src/app/globals.css` (Tailwind v4 is configured in CSS; ther
 - `src/app/products/[slug]/page.tsx` is the product detail page: prerendered from `getProductSlugs()`, new DB products render on demand, unknown slugs `notFound()`. Per-product metadata and Product JSON-LD. Client pieces: `ProductGallery` (swipe + progress on mobile, stacked on desktop) and `PurchasePanel` (size picker, live stock, add-to-bag — UI only, no cart yet).
 - Stock rules live in `catalog.ts`: `totalStock` (sum of `sizes[].stock` for sized products, else `stock`), `stockState` (`sold_out` at 0, `low_stock` at ≤ `LOW_STOCK_THRESHOLD`), `stockLabel`. `ProductCard`, `StockIndicator` and the JSON-LD availability all derive from these — keep them the single source.
 - Product `gallery` images are 4:5 Unsplash crops of the same photo (full frame + focal-point close-ups via the `gallery()` helper in `src/db/seed-data.ts`).
+- `src/app/new-in/page.tsx` lists `getNewArrivals()` in a `product-grid` of `ProductCard`s (the home rail's "View all").
 - Many linked routes (`/collections/*`, `/categories/*`, `/bag`, `/account`, …) don't exist yet and render `src/app/not-found.tsx`.
 
 ## Conventions

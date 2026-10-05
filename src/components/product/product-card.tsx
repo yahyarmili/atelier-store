@@ -5,11 +5,14 @@ import { formatPrice, stockState, totalStock, type Product } from "@/lib/catalog
 type Props = {
   product: Product;
   sizes?: string;
+  /** Above-the-fold cards: load the image eagerly. */
+  preload?: boolean;
 };
 
 export function ProductCard({
   product,
   sizes = "(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw",
+  preload = false,
 }: Props) {
   const soldOut = stockState(totalStock(product)) === "sold_out";
   const badge = soldOut ? "Sold out" : product.badge;
@@ -22,6 +25,7 @@ export function ProductCard({
           alt={product.image.alt}
           fill
           sizes={sizes}
+          preload={preload}
           className="transition-transform duration-1000 ease-luxe group-hover:scale-[1.04]"
         />
         {badge && (
