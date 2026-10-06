@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Atelier Store — an eCommerce app at the scaffold stage: Next.js 16 (App Router, Turbopack), TypeScript (strict), Tailwind CSS v4, Better Auth, Drizzle ORM, Neon Postgres. The catalog (categories, products, stock) is in Postgres; no cart, orders, or auth flows exist yet.
+Atelier Store — an eCommerce app at the scaffold stage: Next.js 16 (App Router, Turbopack), TypeScript (strict), Tailwind CSS v4, Better Auth, Drizzle ORM, Neon Postgres. The catalog (categories, products, stock) is in Postgres; email/password auth with customer and admin areas exists (see Authentication); no cart or orders yet.
 
 ## Commands
 
@@ -17,6 +17,7 @@ npm run lint           # eslint (flat config, eslint-config-next)
 npm run typecheck      # next typegen && tsc --noEmit
 
 npm run auth:generate  # write Better Auth tables into src/db/schema/auth.ts
+npm run auth:make-admin -- <email>  # grant the admin role to an existing user
 npm run db:generate    # drizzle-kit: schema → SQL migrations in ./drizzle
 npm run db:migrate     # apply migrations to Neon
 npm run db:seed        # upsert the sample catalog (src/db/seed-data.ts); idempotent
@@ -42,7 +43,7 @@ Single Next.js app; all server-side data access goes through one Drizzle client.
 
 - `src/db/index.ts` — exports `db`: Drizzle over the Neon **HTTP** driver (`drizzle-orm/neon-http`). This driver does not support interactive transactions; anything needing `db.transaction()` (e.g. checkout) must use Neon's WebSocket `Pool` with `drizzle-orm/neon-serverless`.
 - `src/db/schema/index.ts` — the single schema entry point, shared by three consumers: the runtime `db` client, the Better Auth Drizzle adapter (`schema` option), and `drizzle-kit` (`drizzle.config.ts`). New tables must be re-exported from here to be visible to all three.
-- `src/lib/auth.ts` — the server `auth` instance (`betterAuth` + `drizzleAdapter(db, { provider: "pg", schema })`). `nextCookies()` must stay the **last** plugin. Server code reads sessions via `auth.api.getSession({ headers: await headers() })`.
+- `src/lib/auth.ts` — the server `auth` instance (`betterAuth` + `drizzleAdapter(db, { provider: "pg", schema })`). `nextCookies()` must stay the **last** plugin. Server code reads sessions through `src/lib/session.ts`, not `auth.api.getSession` directly.
 - `src/lib/auth-client.ts` — `authClient` from `better-auth/react`; no `baseURL`, so it targets the same origin.
 - `src/app/api/auth/[...all]/route.ts` — mounts Better Auth via `toNextJsHandler(auth)`; all auth endpoints live under `/api/auth/*`.
 
@@ -50,7 +51,16 @@ Auth endpoints will fail at runtime ("Missing tables") until `auth:generate` →
 
 `auth.ts` and `db/index.ts` intentionally do not import `server-only`: the `auth` CLI loads `auth.ts` outside Next, where `server-only` throws.
 
-Route protection, when added, goes in `src/proxy.ts` (Next 16 renamed `middleware` to `proxy`).
+## Authentication
+
+Email/password only (no social login, password reset, email verification or 2FA yet).
+
+- **Config** (`auth.ts`): `generateId: "serial"` (integer identity PKs in the generated schema), 30-day DB sessions (`updateAge` 1 day), no `cookieCache` — every check hits the DB, so sign-out and role changes apply immediately. `user.role` is an `additionalFields` enum (`customer` default, `admin`) with `input: false`, so sign-up bodies can't set it. Rate limiting uses `storage: "database"` (`rate_limit` table) with stricter rules on `/sign-in/email` and `/sign-up/email`; Better Auth only enables it when `NODE_ENV=production`.
+- **Session helpers** (`src/lib/session.ts`, `server-only`) are the authorization boundary: `getSession()` (per-request `cache`), `requireUser(next)` (redirects to `/sign-in?next=…`), `requireAdmin(next)` (non-admins get `notFound()`), `safeNext()` (same-origin paths only — use it for every post-auth redirect). Every protected page **and** every server action calls one of these itself; a check in a layout or in proxy is not enough.
+- **Proxy** (`src/proxy.ts`): optimistic cookie-presence check on `/account/*` and `/admin/*` only (`getSessionCookie`, no DB). Never rely on it for authorization.
+- **UI**: `src/app/(auth)/` holds `/sign-in` and `/sign-up` (shared `AuthPage` + client `AuthForm`) and `signOutAction`. Sign-in/up submit via `authClient` so they go through `/api/auth/*`: server-side `auth.api.*` calls skip rate limiting and origin checks. `/account` and `/admin` are dynamic (they read headers); don't read the session in `layout.tsx` or `SiteHeader`, or every catalog page loses ISR.
+- **Admins**: granted only by `npm run auth:make-admin -- <email>`; there is no UI for it. `user_role_check` (custom migration `0002`) enforces the role values in the DB.
+- **Schema exception**: generated auth tables use `timestamp` (no time zone), not `timestamptz` — accepted so `schema/auth.ts` stays regenerable.
 
 ## Database conventions
 
@@ -89,7 +99,7 @@ All of it lives in `src/app/globals.css` (Tailwind v4 is configured in CSS; ther
 - Stock rules live in `catalog.ts`: `totalStock` (sum of `sizes[].stock` for sized products, else `stock`), `stockState` (`sold_out` at 0, `low_stock` at ≤ `LOW_STOCK_THRESHOLD`), `stockLabel`. `ProductCard`, `StockIndicator` and the JSON-LD availability all derive from these — keep them the single source.
 - Product `gallery` images are 4:5 Unsplash crops of the same photo (full frame + focal-point close-ups via the `gallery()` helper in `src/db/seed-data.ts`).
 - `src/app/new-in/page.tsx` lists `getNewArrivals()` in a `product-grid` of `ProductCard`s (the home rail's "View all").
-- Many linked routes (`/collections/*`, `/categories/*`, `/bag`, `/account`, …) don't exist yet and render `src/app/not-found.tsx`.
+- Many linked routes (`/collections/*`, `/categories/*`, `/bag`, …) don't exist yet and render `src/app/not-found.tsx`.
 
 ## Conventions
 
