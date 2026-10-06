@@ -1,8 +1,9 @@
 import "server-only";
-import { asc, count, eq, type SQL } from "drizzle-orm";
+import { asc, count, eq, inArray, or, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import { categories, products, productStock } from "@/db/schema";
+import type { BagProduct } from "./bag";
 import type { Category, Product } from "./catalog";
 
 // Catalog reads for Server Components. Rows are mapped to the `Product` /
@@ -84,6 +85,24 @@ export async function getRelatedProducts(product: Product, limit = 8) {
     ...others.filter(sameCategory),
     ...others.filter((p) => !sameCategory(p)),
   ].slice(0, limit);
+}
+
+/**
+ * Current price and stock for the products in a bag, plus the product with
+ * `slug` (the one being added). Uncached: bag reads and writes need live stock.
+ */
+export async function getBagProducts(ids: number[], slug?: string): Promise<BagProduct[]> {
+  if (ids.length === 0 && !slug) return [];
+
+  const rows = await db.query.products.findMany({
+    where: or(
+      ids.length > 0 ? inArray(products.id, ids) : undefined,
+      slug ? eq(products.slug, slug) : undefined,
+    ),
+    columns: { id: true, slug: true, name: true, image: true, priceCents: true },
+    with: { stock: { columns: { size: true, quantity: true } } },
+  });
+  return rows;
 }
 
 /** Catalog totals for the admin dashboard. */

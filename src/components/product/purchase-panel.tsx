@@ -1,29 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { addToBag } from "@/app/bag/actions";
+import { notifyBagChange } from "@/components/bag/bag-count";
+import { bagErrorMessage } from "@/lib/bag";
 import { stockState, totalStock, type Product } from "@/lib/catalog";
 import { StockIndicator } from "./stock-indicator";
 
-type Status = "idle" | "needs-size" | "added";
+type Status =
+  | { kind: "idle" }
+  | { kind: "needs-size" }
+  | { kind: "added" }
+  | { kind: "error"; message: string };
 
-// Size selection, live stock state and add-to-bag.
-// UI only — the bag isn't implemented yet, so "add" just confirms locally.
+// Size selection, live stock state and add-to-bag. Stock shown here comes from
+// the (up to 60s old) prerender; `addToBag` re-checks live stock on the server.
 export function PurchasePanel({ product }: { product: Product }) {
   const [size, setSize] = useState<string | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [pending, startTransition] = useTransition();
 
   const selected = product.sizes?.find((s) => s.label === size);
   const quantity = selected ? selected.stock : totalStock(product);
   const soldOut = stockState(totalStock(product)) === "sold_out";
   const selectedSoldOut = selected ? selected.stock === 0 : false;
 
-  const addToBag = () => {
+  const add = () => {
     if (product.sizes && !selected) {
-      setStatus("needs-size");
+      setStatus({ kind: "needs-size" });
       return;
     }
-    setStatus("added");
+    if (pending) return;
+    startTransition(async () => {
+      try {
+        const result = await addToBag({ slug: product.slug, size: selected?.label ?? null });
+        if (result.ok) {
+          setStatus({ kind: "added" });
+          notifyBagChange();
+        } else {
+          setStatus({ kind: "error", message: bagErrorMessage(result) });
+        }
+      } catch {
+        setStatus({
+          kind: "error",
+          message: "We couldn't reach Atelier. Check your connection and try again.",
+        });
+      }
+    });
   };
 
   return (
@@ -57,7 +81,7 @@ export function PurchasePanel({ product }: { product: Product }) {
                       checked={size === s.label}
                       onChange={() => {
                         setSize(s.label);
-                        setStatus("idle");
+                        setStatus({ kind: "idle" });
                       }}
                       className="sr-only"
                     />
@@ -72,7 +96,7 @@ export function PurchasePanel({ product }: { product: Product }) {
       )}
 
       <div aria-live="polite">
-        {status === "needs-size" ? (
+        {status.kind === "needs-size" ? (
           <p className="text-danger">Please select a size.</p>
         ) : product.sizes && !selected && !soldOut ? (
           <p className="text-muted">Select a size to check availability.</p>
@@ -103,24 +127,36 @@ export function PurchasePanel({ product }: { product: Product }) {
             <button
               type="button"
               className="btn btn-primary btn-block"
-              onClick={addToBag}
+              aria-disabled={pending || undefined}
+              onClick={add}
             >
-              {status === "added" ? "Added to bag" : "Add to bag"}
+              {pending ? "Adding…" : status.kind === "added" ? "Added to bag" : "Add to bag"}
             </button>
-            <Link href="/appointments" className="btn btn-secondary btn-block">
-              Book an appointment
-            </Link>
+            {status.kind === "added" ? (
+              <Link href="/bag" className="btn btn-secondary btn-block">
+                View bag
+              </Link>
+            ) : (
+              <Link href="/appointments" className="btn btn-secondary btn-block">
+                Book an appointment
+              </Link>
+            )}
           </>
         )}
       </div>
 
-      {status === "added" && (
-        <p role="status" className="text-muted">
-          {product.name}
-          {selected ? `, size ${selected.label},` : ""} has been added to your
-          bag.
-        </p>
-      )}
+      <div role="status">
+        {status.kind === "added" && (
+          <p className="text-muted">
+            {product.name}
+            {selected ? `, size ${selected.label},` : ""} has been added to your
+            bag.
+          </p>
+        )}
+      </div>
+      <div role="alert">
+        {status.kind === "error" && <p className="text-danger">{status.message}</p>}
+      </div>
     </div>
   );
 }
