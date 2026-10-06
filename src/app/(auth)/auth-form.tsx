@@ -238,6 +238,8 @@ function describeError(
 ): FormError {
   if (error.status === 0) return { message: "We couldn't reach Atelier. Check your connection and try again." };
   if (error.status === 429) return { message: "Too many attempts. Please wait a minute and try again." };
+  if (error.code === "INVALID_NAME")
+    return { field: "name", message: `Name must be ${NAME_MAX} characters or fewer.` };
   if (error.code === "INVALID_EMAIL") return { field: "email", message: "Enter a valid email address." };
   if (error.code === "PASSWORD_TOO_SHORT")
     return { field: "password", message: `Password must be at least ${PASSWORD_MIN} characters.` };

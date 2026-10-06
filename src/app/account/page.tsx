@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { signOutAction } from "@/app/(auth)/actions";
+import Link from "next/link";
 import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -7,34 +7,45 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default async function AccountPage() {
+export default async function AccountOverviewPage() {
   const { user } = await requireUser("/account");
 
   return (
-    <section aria-labelledby="account-title" className="container-page py-section">
-      <div className="mx-auto max-w-sm">
-        <p className="title-xs mb-2 text-muted">My account</p>
-        <h1 id="account-title" className="title-l mb-10">
-          Welcome, {user.name}
-        </h1>
+    <div className="space-y-14">
+      <h1 className="sr-only">Account overview</h1>
 
-        <dl className="hairline-t mb-10">
+      <section aria-labelledby="overview-details">
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+          <h2 id="overview-details" className="title-s">
+            Account details
+          </h2>
+          <Link href="/account/details" className="link">
+            Edit
+          </Link>
+        </div>
+        <dl className="hairline-t">
           <div className="hairline flex justify-between gap-4 py-4">
-            <dt className="text-muted">Name</dt>
-            <dd>{user.name}</dd>
+            <dt className="shrink-0 text-muted">Name</dt>
+            <dd className="min-w-0 break-words text-right">{user.name}</dd>
           </div>
           <div className="hairline flex justify-between gap-4 py-4">
-            <dt className="text-muted">Email</dt>
-            <dd className="truncate">{user.email}</dd>
+            <dt className="shrink-0 text-muted">Email</dt>
+            <dd className="min-w-0 break-all text-right">{user.email}</dd>
           </div>
         </dl>
+      </section>
 
-        <form action={signOutAction}>
-          <button type="submit" className="btn btn-secondary btn-block">
-            Sign out
-          </button>
-        </form>
-      </div>
-    </section>
+      <section aria-labelledby="overview-help">
+        <h2 id="overview-help" className="title-s mb-4">
+          Client services
+        </h2>
+        <p className="body mb-6 max-w-md text-soft">
+          Our advisors can help with product questions, care advice and appointments.
+        </p>
+        <Link href="/client-services" className="btn btn-secondary">
+          Contact client services
+        </Link>
+      </section>
+    </div>
   );
 }

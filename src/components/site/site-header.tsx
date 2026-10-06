@@ -109,7 +109,7 @@ export function SiteHeader() {
           </nav>
           <div className="hairline-t space-y-4 px-gutter py-8">
             <Link href="/account" className="link-muted block">
-              Sign in
+              My account
             </Link>
             <Link href="/client-services" className="link-muted block">
               Client services
