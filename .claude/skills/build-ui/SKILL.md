@@ -1,6 +1,7 @@
 ---
 name: build-ui
 description: Build or update customer-facing ecommerce UI using the existing design system, components, product patterns and responsive conventions. Use when creating or significantly changing pages, sections or customer-facing components.
+disable-model-invocation: true
 ---
 
 Build or update the following UI:
