@@ -138,6 +138,8 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* Keep focused fields and anchor targets clear of the sticky header. */
+    scroll-padding-top: calc(var(--header-height) + 2rem);
   }
 
   body {
