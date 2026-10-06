@@ -3,13 +3,13 @@
 import {
   MAX_BAG_LINES,
   addLine,
-  bagCount,
   findLine,
   lineLimit,
   normalizeBag,
   parseProductId,
   parseQuantity,
   parseSize,
+  priceBag,
   removeLine,
   setLineQuantity,
   type BagError,
@@ -40,8 +40,9 @@ async function loadBag(slug?: string) {
 
 async function save(lines: BagLine[], products: BagProduct[]): Promise<BagResult> {
   const normalized = normalizeBag(lines, products);
-  await writeBag(normalized);
-  return { ok: true, count: bagCount(normalized) };
+  const { count } = priceBag(normalized, products);
+  await writeBag(normalized, count);
+  return { ok: true, count };
 }
 
 /** Called from the product page. Adds `quantity` (default 1) of (slug, size). */
