@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import {
   BAG_COOKIE,
   BAG_COUNT_COOKIE,
-  bagCount,
   parseBag,
   priceBag,
   serializeBag,
@@ -30,7 +29,8 @@ export async function readBag(): Promise<BagLine[]> {
   return parseBag(Buffer.from(raw, "base64url").toString("utf8"));
 }
 
-export async function writeBag(lines: BagLine[]) {
+/** `count` is the purchasable unit count shown in the header (see `priceBag`). */
+export async function writeBag(lines: BagLine[], count: number) {
   const store = await cookies();
   if (lines.length === 0) {
     store.delete(BAG_COOKIE);
@@ -41,7 +41,7 @@ export async function writeBag(lines: BagLine[]) {
     ...cookieOptions,
     httpOnly: true,
   });
-  store.set(BAG_COUNT_COOKIE, String(bagCount(lines)), cookieOptions);
+  store.set(BAG_COUNT_COOKIE, String(count), cookieOptions);
 }
 
 /** The bag priced with current catalog data. Makes the calling route dynamic. */
