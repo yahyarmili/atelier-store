@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, eq, type SQL } from "drizzle-orm";
+import { asc, count, eq, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import { categories, products, productStock } from "@/db/schema";
@@ -84,6 +84,15 @@ export async function getRelatedProducts(product: Product, limit = 8) {
     ...others.filter(sameCategory),
     ...others.filter((p) => !sameCategory(p)),
   ].slice(0, limit);
+}
+
+/** Catalog totals for the admin dashboard. */
+export async function getCatalogCounts() {
+  const [[productCount], [categoryCount]] = await db.batch([
+    db.select({ n: count() }).from(products),
+    db.select({ n: count() }).from(categories),
+  ]);
+  return { products: productCount.n, categories: categoryCount.n };
 }
 
 export async function getCategories(): Promise<Category[]> {
