@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Atelier Store — an eCommerce app at the scaffold stage: Next.js 16 (App Router, Turbopack), TypeScript (strict), Tailwind CSS v4, Better Auth, Drizzle ORM, Neon Postgres. The catalog (categories, products, stock) is in Postgres; email/password auth with customer and admin areas exists (see Authentication); no cart or orders yet.
+Atelier Store — an eCommerce app at the scaffold stage: Next.js 16 (App Router, Turbopack), TypeScript (strict), Tailwind CSS v4, Better Auth, Drizzle ORM, Neon Postgres. The catalog (categories, products, stock) is in Postgres; email/password auth with customer and admin areas exists (see Authentication); a cookie-backed shopping bag exists (see Shopping bag); no checkout or orders yet.
 
 ## Commands
 
@@ -15,6 +15,7 @@ npm run dev            # dev server on :3000
 npm run build          # production build (needs DATABASE_URL set — see below)
 npm run lint           # eslint (flat config, eslint-config-next)
 npm run typecheck      # next typegen && tsc --noEmit
+npm test               # node:test via tsx (src/**/*.test.ts)
 
 npm run auth:generate  # write Better Auth tables into src/db/schema/auth.ts
 npm run auth:make-admin -- <email>  # grant the admin role to an existing user
@@ -25,7 +26,7 @@ npm run db:push        # push schema directly (prototyping)
 npm run db:studio      # browse data (loopback only); in Docker use: bash scripts/db-studio.sh
 ```
 
-There is no test framework set up yet, so there are no tests to run. Check changes with `typecheck` + `lint`, plus `build` when a migrated database is reachable.
+Unit tests use the Node test runner through `tsx` (no extra deps): `npm test` runs `src/**/*.test.ts` — only pure modules (e.g. `src/lib/bag.ts`) are tested. Check changes with `typecheck` + `lint` + `test`, plus `build` when a migrated database is reachable. The Dockerised dev server may not pick up file edits on Windows bind mounts; restart it if changes don't appear.
 
 Node is not installed on the host. Run npm/npx inside `node:24-alpine` with the repo mounted at `/app`, from Git Bash with `MSYS_NO_PATHCONV=1` (see the `dev` entry in `.claude/launch.json` and the allowlisted check command in `.claude/settings.json`). `node_modules` therefore holds Linux-musl native binaries, so reinstall before using a host Node.
 
@@ -96,11 +97,20 @@ All of it lives in `src/app/globals.css` (Tailwind v4 is configured in CSS; ther
 - Home page sections live in `src/components/home/`; product UI (`ProductCard`, `ProductRail`) in `src/components/product/`.
 - Products and categories come from the database (see Database conventions). Editorial copy (hero, collections, campaign, navigation…) stays in `src/lib/catalog.ts`.
 - Images are Unsplash URLs, allowed via `images.remotePatterns` in `next.config.ts`; use `preload` (not the deprecated `priority`) for above-the-fold images.
-- `src/app/products/[slug]/page.tsx` is the product detail page: prerendered from `getProductSlugs()`, new DB products render on demand, unknown slugs `notFound()`. Per-product metadata and Product JSON-LD. Client pieces: `ProductGallery` (swipe + progress on mobile, stacked on desktop) and `PurchasePanel` (size picker, live stock, add-to-bag — UI only, no cart yet).
+- `src/app/products/[slug]/page.tsx` is the product detail page: prerendered from `getProductSlugs()`, new DB products render on demand, unknown slugs `notFound()`. Per-product metadata and Product JSON-LD. Client pieces: `ProductGallery` (swipe + progress on mobile, stacked on desktop) and `PurchasePanel` (size picker, stock, add-to-bag via the `addToBag` server action).
 - Stock rules live in `catalog.ts`: `totalStock` (sum of `sizes[].stock` for sized products, else `stock`), `stockState` (`sold_out` at 0, `low_stock` at ≤ `LOW_STOCK_THRESHOLD`), `stockLabel`. `ProductCard`, `StockIndicator` and the JSON-LD availability all derive from these — keep them the single source.
 - Product `gallery` images are 4:5 Unsplash crops of the same photo (full frame + focal-point close-ups via the `gallery()` helper in `src/db/seed-data.ts`).
 - `src/app/new-in/page.tsx` lists `getNewArrivals()` in a `product-grid` of `ProductCard`s (the home rail's "View all").
-- Many linked routes (`/collections/*`, `/categories/*`, `/bag`, …) don't exist yet and render `src/app/not-found.tsx`.
+- Many linked routes (`/collections/*`, `/categories/*`, …) don't exist yet and render `src/app/not-found.tsx`.
+
+## Shopping bag
+
+Per-browser, no DB tables, no sign-in required.
+
+- **Storage**: httpOnly cookie `atelier_bag` = base64url JSON `[[productId, size|null, qty], …]` — references and quantities only, never prices or names. Lines are keyed by `(productId, size)`, not `product_stock.id` (the seed re-creates stock rows). Limits: `MAX_BAG_LINES` 20, `MAX_LINE_QUANTITY` 10. A non-httpOnly `atelier_bag_count` cookie feeds the header badge (`useBagCount` in `src/components/bag/bag-count.tsx`) so catalog pages never read cookies on the server; it's a hint, never trusted.
+- **Files**: `src/lib/bag.ts` (pure, DB-free, client-safe: parsing, line ops, `lineLimit`, `normalizeBag`, `priceBag`, error messages; unit-tested in `bag.test.ts`), `src/lib/bag-store.ts` (`server-only` cookie read/write, `getBag()`), `getBagProducts()` in `src/lib/products.ts`, `src/app/bag/actions.ts` (`addToBag`, `setBagQuantity`, `removeFromBag`), `src/app/bag/page.tsx` (dynamic), `src/components/bag/bag-line.tsx`.
+- **Rules**: every action re-validates input and checks live stock (`lineLimit` = min(stock, max per line)) before writing, and each write normalizes the whole bag (drops lines whose product/size is gone, lowers quantities to stock, keeps sold-out lines). Reads always use current `price_cents`; `priceBag` marks lines `ok` / `reduced` / `sold_out` / `unavailable`, and only purchasable quantities count toward the subtotal.
+- The bag reserves nothing. The authoritative stock check-and-decrement belongs in checkout, inside a transaction.
 
 ## Conventions
 

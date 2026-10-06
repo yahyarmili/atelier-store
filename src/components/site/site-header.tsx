@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useBagCount } from "@/components/bag/bag-count";
 import { BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from "@/components/icons";
 import { navigation } from "@/lib/catalog";
 
@@ -14,6 +15,7 @@ export function SiteHeader() {
   const overlay = OVERLAY_ROUTES.has(pathname);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDialogElement>(null);
+  const bagCount = useBagCount();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -66,8 +68,20 @@ export function SiteHeader() {
             <Link href="/account" className="btn-icon" aria-label="Account">
               <UserIcon />
             </Link>
-            <Link href="/bag" className="btn-icon" aria-label="Shopping bag, 0 items">
+            <Link
+              href="/bag"
+              className="btn-icon relative"
+              aria-label={`Shopping bag, ${bagCount} ${bagCount === 1 ? "item" : "items"}`}
+            >
               <BagIcon />
+              {bagCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="caption absolute top-1 right-0.5 min-w-3.5 rounded-full bg-ink px-1 text-center text-paper tabular-nums"
+                >
+                  {bagCount > 99 ? "99+" : bagCount}
+                </span>
+              )}
             </Link>
           </nav>
         </div>
